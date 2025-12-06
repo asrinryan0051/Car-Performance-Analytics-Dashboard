@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Car Performance Analytics Dashboard</title>
+    
+    <!-- Load Plotly.js -->
+    <script src="https://cdn.plot.ly/plotly-2.31.0.min.js"></script>
+
+    <style>
+        /* --- 1. CSS VARIABLES (THEMING) --- */
+        :root {
+            --bg-color: #f0f2f5;
+            --text-color: #333;
+            --card-bg: #ffffff;
+            --border-color: #ddd;
+            --primary-color: #4f46e5; /* Indigo */
+            --accent-color: #f8f9fa;
+        }
+
+        /* Dark Mode Variables */
+        body.dark-mode {
+            --bg-color: #1a1a1a;
+            --text-color: #e0e0e0;
+            --card-bg: #2d2d2d;
+            --border-color: #444;
+            --accent-color: #333;
+        }
+
+        /* --- 2. BASIC RESET & LAYOUT --- */
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 20px;
+            transition: background-color 0.3s, color 0.3s;
+        }
+
+        .container {
+            max-width: 95%; /* Full screen width */
+            margin: 0 auto;
+        }
+
+        /* --- 3. COMPONENTS --- */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background-color: var(--card-bg);
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+
+        h1 { margin: 0; font-size: 24px; }
+        p.subtitle { margin: 5px 0 0; font-size: 14px; opacity: 0.7; }
+
+        .btn {
+            padding: 8px 16px;
+            border: 1px solid var(--border-color);
+            background-color: var(--accent-color);
+            color: var(--text-color);
+            cursor: pointer;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        .btn:hover { opacity: 0.8; }
+        .btn-primary {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+        }
+
+        /* Control Bar */
+        .controls {
+            background-color: var(--card-bg);
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            align-items: center;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        label { font-size: 12px; font-weight: bold; text-transform: uppercase; margin-bottom: 5px; }
+        
+        select {
+            padding: 8px;
+            border-radius: 4px;
+            border: 1px solid var(--border-color);
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            min-width: 150px;
+        }
+
+        .stats-divider {
+            flex-grow: 1;
+            border-left: 1px solid var(--border-color);
+            height: 40px;
+            margin: 0 20px;
+            display: none; /* Hidden on mobile */
+        }
+        @media (min-width: 768px) { .stats-divider { display: block; } }
+
+        .stat-box { text-align: center; }
+        .stat-number { font-size: 24px; font-weight: bold; color: var(--primary-color); }
+        .stat-label { font-size: 10px; text-transform: uppercase; opacity: 0.7; }
+
+        /* Charts Layout - 2x2 GRID */
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr; /* Mobile default */
+            gap: 20px;
+        }
+        @media (min-width: 1024px) {
+            .grid { grid-template-columns: 1fr 1fr; } /* Desktop 2-column */
+        }
+
+        .card {
+            background-color: var(--card-bg);
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            min-height: 450px; 
+        }
+
+        footer { text-align: center; margin-top: 40px; font-size: 12px; opacity: 0.6; }
+
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        
+        <!-- HEADER -->
+        <div class="header">
+            <div>
+                <h1>Car Performance Analytics Dashboard</h1>
+                <p class="subtitle">Top 34 Vehicle Performance Analytics</p>
+            </div>
+            <button id="darkModeToggle" class="btn">Toggle Night Mode</button>
+        </div>
+
+        <!-- CONTROLS -->
+        <div class="controls">
+            <div class="control-group">
+                <label for="brandFilter">Brand</label>
+                <select id="brandFilter"><option value="All">All Brands</option></select>
+            </div>
+
+            <div class="control-group">
+                <label for="fuelFilter">Fuel Type</label>
+                <select id="fuelFilter"><option value="All">All Fuels</option></select>
+            </div>
+
+            <div class="stats-divider"></div>
+
+            <div class="stat-box">
+                <div class="stat-label">Vehicles</div>
+                <div id="carCount" class="stat-number">0</div>
+            </div>
+
+            <div style="flex-grow: 1; text-align: right;">
+                <button id="resetBtn" class="btn">Reset Filters</button>
+            </div>
+        </div>
+
+        <!-- CHARTS - 2x2 Grid -->
+        <div class="grid">
+            <div id="plot1" class="card"></div>
+            <div id="plot2" class="card"></div>
+            <div id="plot3" class="card"></div>
+            <div id="plot4" class="card"></div>
+        </div>
+
+        <footer>
+           All performance metrics are for selected engine variants.
+        </footer>
+
+    </div>
+
+    <script>
+        // --- 1. DATA ---
+        const mycardataset_content = 
+            "Brand,Model,no.of.cylinders,BHP,torque (Nm),acceleration(0-100) (seconds),fuel type,top speed (km/h)\n" +
+            "Mahindra,XUV700 (2.0L Petrol),4,197,380,9.3,Petrol,190\n" +
+            "Mahindra,XUV500 (2.2L Diesel),4,140,330,12.0,Diesel,180\n" +
+            "Mahindra,SCORPIO CLASSIC (2.2L Diesel),4,130,300,12.0,Diesel,160\n" +
+            "Toyota,INNOVA CRYSTA (2.4L Diesel),4,148,343,11.0,Diesel,170\n" +
+            "Toyota,INNOVA HYCROSS (Hybrid),4,184,188/320 (System),10.1,Hybrid (Petrol),170\n" +
+            "Toyota,FORTUNER (2.8L Diesel),4,201,500,10.0,Diesel,190\n" +
+            "Mahindra,SCORPIO-N (2.0L Petrol),4,200,370,10.0,Petrol,180\n" +
+            "Mahindra,THAR ROXX (2.2L Diesel),4,172,370,11.0,Diesel,170\n" +
+            "Mahindra,THAR (2.0L Petrol),4,150,320,10.5,Petrol,160\n" +
+            "Hyundai,VENUE (1.0L Turbo),3,118,172,11.3,Petrol,180\n" +
+            "Hyundai,CRETA (1.5L Turbo Petrol),4,158,253,9.0,Petrol,190\n" +
+            "Maruti Suzuki,BREZZA (1.5L Petrol),4,99,137,13.5,Petrol,165\n" +
+            "Mahindra,BOLERO NEO (1.5L Diesel),3,100,260,14.0,Diesel,145\n" +
+            "Maruti Suzuki,ERTIGA (1.5L Petrol),4,102,137,14.0,Petrol,160\n" +
+            "Hyundai,VERNA (1.5L Turbo Petrol),4,158,253,8.5,Petrol,210\n" +
+            "Honda,CITY (1.5L Petrol i-VTEC),4,121,145,10.0,Petrol,190\n" +
+            "Volkswagen,VIRTUS (1.5L TSI),4,148,250,9.0,Petrol,200\n" +
+            "Skoda,SLAVIA (1.5L TSI),4,148,250,9.4,Petrol,200\n" +
+            "Volkswagen,TAIGUN (1.5L TSI),4,148,250,9.5,Petrol,195\n" +
+            "Volkswagen,TIGUAN (2.0L TSI),4,187,300,9.1,Petrol,200\n" +
+            "Skoda,KODIAQ (2.0L TSI),4,201,320,7.8,Petrol,215\n" +
+            "Skoda,KUSHAQ (1.5L TSI),4,148,250,9.5,Petrol,195\n" +
+            "Skoda,KYLAQ (1.0L TSI),3,114,178,11.0,Petrol,180\n" +
+            "Mahindra,XUV 3XO (1.2L Turbo),3,130,230,10.5,Petrol,185\n" +
+            "Toyota,HYRYDER (Hybrid),3,116,141/300 (System),11.5,Hybrid (Petrol),175\n" +
+            "Toyota,CAMRY (Hybrid),4,218,221/400 (System),8.0,Hybrid (Petrol),190\n" +
+            "Maruti Suzuki,GRAND VITARA (Hybrid),3,116,141/300 (System),11.5,Hybrid (Petrol),175\n" +
+            "Maruti Suzuki,VICTORIS (Mild Hybrid),4,103,139,12.5,Petrol,170\n" +
+            "Maruti Suzuki,FRONX (1.0L Turbo),3,100,148,10.8,Petrol,180\n" +
+            "Maruti Suzuki,SWIFT (1.2L DualJet),4,89,113,11.2,Petrol,155\n" +
+            "Hyundai,EXTER (1.2L Kappa),4,82,114,13.5,Petrol,150\n" +
+            "Hyundai,I20 (1.0L Turbo),3,120,172,10.2,Petrol,190\n" +
+            "Honda,ELEVATE (1.5L i-VTEC),4,119,145,11.0,Petrol,160\n" +
+            "Honda,AMAZE (1.2L i-VTEC),4,89,110,13.0,Petrol,160";
+
+        let originalData = [];
+        let isDarkMode = false;
+
+        function processData(csv) {
+            const lines = csv.split('\n').filter(line => line.trim() !== '');
+            const headers = lines[0].split(',');
+            const data = [];
+            for (let i = 1; i < lines.length; i++) {
+                const values = lines[i].split(',');
+                if (values.length !== headers.length) continue; 
+                let row = {};
+                headers.forEach((header, index) => row[header.trim()] = values[index].trim());
+                let torqueStr = row['torque (Nm)'];
+                let torque = torqueStr.includes('/') ? parseFloat(torqueStr.split('/')[1].split(' ')[0]) : parseFloat(torqueStr);
+                row.BHP = parseFloat(row.BHP);
+                row.Torque = torque;
+                row.Acceleration = parseFloat(row['acceleration(0-100) (seconds)']);
+                row.TopSpeed = parseFloat(row['top speed (km/h)']);
+                row.Model_Clean = row.Model.split('(')[0].trim();
+                row.BHP_per_Torque = row.BHP / row.Torque;
+                if(row['fuel type'].includes('Hybrid')) row['fuel type'] = 'Hybrid';
+                if (!isNaN(row.BHP) && !isNaN(row.Torque)) data.push(row);
+            }
+            return data;
+        }
+
+        originalData = processData(mycardataset_content);
+
+        // --- 2. LOGIC ---
+        const brandSelect = document.getElementById('brandFilter');
+        const fuelSelect = document.getElementById('fuelFilter');
+        const resetBtn = document.getElementById('resetBtn');
+        const countDisplay = document.getElementById('carCount');
+        const darkModeToggle = document.getElementById('darkModeToggle');
+
+        const getUnique = (items) => [...new Set(items)].sort();
+
+        function populateSelect(selectElement, options) {
+            const currentVal = selectElement.value;
+            selectElement.innerHTML = '<option value="All">' + (selectElement.id === 'brandFilter' ? 'All Brands' : 'All Fuels') + '</option>';
+            options.forEach(opt => {
+                const option = document.createElement('option');
+                option.value = opt;
+                option.innerText = opt;
+                selectElement.appendChild(option);
+            });
+            selectElement.value = options.includes(currentVal) ? currentVal : 'All';
+        }
+
+        function onBrandChange() {
+            const selectedBrand = brandSelect.value;
+            const brandData = selectedBrand === 'All' ? originalData : originalData.filter(d => d.Brand === selectedBrand);
+            populateSelect(fuelSelect, getUnique(brandData.map(d => d['fuel type'])));
+            updateDashboard(brandData.filter(d => fuelSelect.value === 'All' || d['fuel type'] === fuelSelect.value));
+        }
+
+        function onFuelChange() {
+            const selectedFuel = fuelSelect.value;
+            const fuelData = selectedFuel === 'All' ? originalData : originalData.filter(d => d['fuel type'] === selectedFuel);
+            populateSelect(brandSelect, getUnique(fuelData.map(d => d.Brand)));
+            updateDashboard(fuelData.filter(d => brandSelect.value === 'All' || d.Brand === brandSelect.value));
+        }
+
+        function resetFilters() {
+            brandSelect.value = "All";
+            fuelSelect.value = "All";
+            populateSelect(brandSelect, getUnique(originalData.map(d => d.Brand)));
+            populateSelect(fuelSelect, getUnique(originalData.map(d => d['fuel type'])));
+            updateDashboard(originalData);
+        }
+
+        function updateDashboard(data) {
+            countDisplay.innerText = data.length;
+            updateCharts(data);
+        }
+
+        function toggleDarkMode() {
+            document.body.classList.toggle('dark-mode');
+            isDarkMode = !isDarkMode;
+            const btn = document.getElementById('darkModeToggle');
+            btn.innerText = isDarkMode ? "Switch to Light Mode" : "Switch to Night Mode";
+            
+            const selectedBrand = brandSelect.value;
+            const selectedFuel = fuelSelect.value;
+            const filteredData = originalData.filter(d => {
+                const bMatch = selectedBrand === 'All' || d.Brand === selectedBrand;
+                const fMatch = selectedFuel === 'All' || d['fuel type'] === selectedFuel;
+                return bMatch && fMatch;
+            });
+            updateCharts(filteredData);
+        }
+
+        // --- 3. PLOTLY CHARTS ---
+        function getPlotLayout(title, xaxis, yaxis) {
+            const textColor = isDarkMode ? '#e0e0e0' : '#333';
+            const bgColor = isDarkMode ? '#2d2d2d' : '#ffffff';
+            const gridColor = isDarkMode ? '#444' : '#ddd';
+
+            return {
+                title: { text: title, font: { color: textColor, size: 16 } },
+                paper_bgcolor: bgColor,
+                plot_bgcolor: bgColor,
+                font: { color: textColor },
+                xaxis: { title: xaxis, gridcolor: gridColor, zerolinecolor: gridColor },
+                yaxis: { title: yaxis, gridcolor: gridColor, zerolinecolor: gridColor, autorange: yaxis.includes('Time') ? 'reversed' : true },
+                margin: { t: 50, b: 50, l: 50, r: 20 }
+            };
+        }
+
+        function updateCharts(data) {
+            if (typeof Plotly === 'undefined') {
+                console.error("Plotly not loaded");
+                return;
+            }
+
+            // Plot 1: Scatter
+            const trace1 = {
+                x: data.map(d => d.BHP),
+                y: data.map(d => d.Acceleration),
+                text: data.map(d => `${d.Brand} ${d.Model_Clean}<br>Torque: ${d.Torque} Nm`),
+                hovertemplate: '<b>%{text}</b><br>BHP: %{x}<br>Acceleration: %{y}s<extra></extra>', // Clean hover
+                mode: 'markers',
+                type: 'scatter',
+                marker: {
+                    size: data.map(d => d.Torque / 10),
+                    sizemode: 'area',
+                    sizeref: 2 * Math.max(...originalData.map(d => d.Torque / 10)) / (40 * 40),
+                    color: data.map(d => d['fuel type']),
+                    colorscale: 'Viridis',
+                    showscale: false
+                }
+            };
+            Plotly.react('plot1', [trace1], getPlotLayout('BHP vs. Acceleration (Size=Torque)', 'BHP', '0-100 Time (s)'), {responsive: true});
+
+            // Plot 2: Bar
+            const brandGroups = data.reduce((acc, curr) => {
+                acc[curr.Brand] = (acc[curr.Brand] || []);
+                acc[curr.Brand].push(curr.BHP);
+                return acc;
+            }, {});
+            const brands = Object.keys(brandGroups);
+            const avgBHP = brands.map(b => brandGroups[b].reduce((a, c) => a + c, 0) / brandGroups[b].length);
+            const sortedIdx = avgBHP.map((v, i) => ({v, i})).sort((a, b) => b.v - a.v).map(x => x.i);
+            const trace2 = {
+                x: sortedIdx.map(i => brands[i]),
+                y: sortedIdx.map(i => avgBHP[i]),
+                type: 'bar',
+                marker: { color: sortedIdx.map(i => avgBHP[i]), colorscale: 'Spectral' }
+            };
+            Plotly.react('plot2', [trace2], getPlotLayout('Avg. BHP by Brand', 'Brand', 'Average BHP'), {responsive: true});
+
+            // Plot 3: Box
+            const trace3 = [...new Set(data.map(d => d['fuel type']))].map(fuel => ({
+                y: data.filter(d => d['fuel type'] === fuel).map(d => d.TopSpeed),
+                name: fuel,
+                type: 'box',
+                boxpoints: 'all',
+                jitter: 0.3,
+                pointpos: -1.8
+            }));
+            Plotly.react('plot3', trace3, getPlotLayout('Top Speed by Fuel', 'Fuel Type', 'Top Speed (km/h)'), {responsive: true});
+
+            // Plot 4: Line
+            const sortedData = [...data].sort((a, b) => a.Acceleration - b.Acceleration);
+            const trace4 = {
+                x: sortedData.map(d => d.Acceleration),
+                y: sortedData.map(d => d.BHP_per_Torque),
+                text: sortedData.map(d => `${d.Model_Clean}`),
+                hovertemplate: '<b>%{text}</b><br>Time: %{x}s<br>Ratio: %{y:.3f}<extra></extra>', // Explicit hover format
+                mode: 'lines+markers',
+                type: 'scatter',
+                marker: { size: 8, color: '#4f46e5' }, 
+                line: { color: '#4f46e5', width: 2 }
+            };
+            Plotly.react('plot4', [trace4], getPlotLayout('Speed vs. Engine Ratio', '0-100 Time (s)', 'BHP/Torque Ratio'), {responsive: true});
+        }
+
+        brandSelect.addEventListener('change', onBrandChange);
+        fuelSelect.addEventListener('change', onFuelChange);
+        resetBtn.addEventListener('click', resetFilters);
+        darkModeToggle.addEventListener('click', toggleDarkMode);
+
+        window.onload = function() {
+            resetFilters();
+        };
+    </script>
+</body>
+</html>
