@@ -154,6 +154,13 @@ This project is designed for **instant execution** with **zero installation**.
 No Python, no Node.js, no server required.
 
 ---
+## ⚠️ Disclaimer
+
+This project is created for **educational and portfolio purposes only**.  
+All car brand names, models, and specifications belong to their respective owners.  
+This project is **not affiliated with or endorsed by any car manufacturer**.
+
+---
 
 
 
